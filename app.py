@@ -27,10 +27,13 @@ df = df[df["act"] == "True"]  # 只看營運中的站（這份 CSV 的 act 存�
 df["時段名稱"] = df["時段"].map(時段說明)
 
 時段們 = sorted(df["時段名稱"].unique())
+行政區們 = sorted(df["sarea"].unique())
 
 # reactive：值改變時，用到它的元件會自動重新執行。
+# 放在元件外面，Page、全部畫面、單區畫面都讀得到同一個值。
 門檻 = solara.reactive(0)
 時段 = solara.reactive(時段們[0])
+行政區 = solara.reactive("全部")
 
 
 def 計算指標(資料, 分組欄位, 門檻值):
@@ -59,13 +62,8 @@ def 計算指標(資料, 分組欄位, 門檻值):
 
 
 @solara.component
-def Page():
-    solara.Title("YouBike 空站觀察")
-    solara.Markdown("# 臺北 YouBike 各區空站比例")
-
-    # 滑桿預設會撐滿整個頁寬，用 Column 限制最大寬度，比較好操作。
-    with solara.Column(style={"max-width": "480px"}):
-        solara.SliderInt("空站門檻：可借車 ≤", value=門檻, min=0, max=5)
+def 全部畫面():
+    """選「全部」時：選一個時段，比較各區的空站比例。"""
     solara.ToggleButtonsSingle(value=時段, values=時段們)
 
     當時 = df[df["時段名稱"] == 時段.value]
@@ -89,6 +87,32 @@ def Page():
     solara.FigurePlotly(圖)
 
     solara.DataFrame(表)
+
+
+@solara.component
+def 單區畫面(區名):
+    """選某一區時：看這個區在各時段的狀況。"""
+    solara.Markdown(f"## {區名}：各時段狀況（可借車 ≤ {門檻.value} 算空站）")
+
+    該區 = df[df["sarea"] == 區名]
+    表 = 計算指標(該區, "時段名稱", 門檻.value)
+    solara.DataFrame(表)
+
+
+@solara.component
+def Page():
+    solara.Title("YouBike 空站觀察")
+    solara.Markdown("# 臺北 YouBike 各區空站比例")
+
+    # 下拉選單和滑桿預設會撐滿整個頁寬，用 Column 限制最大寬度，比較好操作。
+    with solara.Column(style={"max-width": "480px"}):
+        solara.Select("選擇行政區", values=["全部"] + 行政區們, value=行政區)
+        solara.SliderInt("空站門檻：可借車 ≤", value=門檻, min=0, max=5)
+
+    if 行政區.value == "全部":
+        全部畫面()
+    else:
+        單區畫面(行政區.value)
 
     solara.Markdown(
         "資料來源：臺北市 YouBike 2.0 即時資料（臺北市資料大平臺），"
