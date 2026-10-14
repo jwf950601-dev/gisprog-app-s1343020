@@ -71,6 +71,14 @@ def 比例長表(表):
     )
 
 
+def 點擊長條(資料):
+    """在「全部」畫面點某一區的長條，就切換到那一區（下拉選單也會跟著變）。"""
+    # 橫向長條圖的行政區名稱在 Y 軸，所以讀 ys。
+    點到的區們 = 資料["points"]["ys"]
+    if 點到的區們:
+        行政區.value = 點到的區們[0]
+
+
 @solara.component
 def 全部畫面():
     """選「全部」時：選一個時段，比較各區的空站比例。"""
@@ -94,7 +102,8 @@ def 全部畫面():
         xaxis_tickformat=".0%",
         height=150 + 30 * len(表),
     )
-    solara.FigurePlotly(圖)
+    solara.Markdown("提示：點某一區的長條，可以直接查看該區各時段的狀況。")
+    solara.FigurePlotly(圖, on_click=點擊長條)
 
     solara.DataFrame(表)
 
