@@ -18,19 +18,44 @@ DATA_PATH = Path(__file__).parent / "data" / "my_youbike_w3.csv"
 df = pd.read_csv(DATA_PATH, dtype={"sno": str, "act": str})
 df = df[df["act"] == "True"]  # 只看營運中的站（這份 CSV 的 act 存成 True/False）
 
-時段們 = sorted(df["時段"].unique())
+# 時段加上說明（HW3 的決策：09:40 標成「上午」，不標成「通勤」）。
+時段說明 = {
+    "09/29 02:21": "09/29 02:21（深夜）",
+    "09/29 09:40": "09/29 09:40（上午）",
+    "09/29 12:41": "09/29 12:41（中午）",
+}
+df["時段名稱"] = df["時段"].map(時段說明)
+
+時段們 = sorted(df["時段名稱"].unique())
 
 # reactive：值改變時，用到它的元件會自動重新執行。
 門檻 = solara.reactive(0)
 時段 = solara.reactive(時段們[0])
 
 
-def 各區空站比例(資料, 門檻值):
-    """計算各區的站數、空站數與空站比例（可借車 <= 門檻值 算空站）。"""
-    資料 = 資料.assign(空站=資料["available_rent_bikes"] <= 門檻值)
-    表 = 資料.groupby("sarea").agg(站數=("sno", "size"), 空站數=("空站", "sum"))
+def 計算指標(資料, 分組欄位, 門檻值):
+    """依分組欄位計算站數、空站數、空站比例、滿站數、滿站比例、權重有車率。
+
+    空站：可借車 <= 門檻值（預設 0）；滿站：可還空位 = 0。
+    權重有車率 = Σ可借 ÷ Σ可用格位（可借＋可還），等於把每站有車率用可用格位數加權平均。
+    """
+    資料 = 資料.assign(
+        空站=資料["available_rent_bikes"] <= 門檻值,
+        滿站=資料["available_return_bikes"] == 0,
+        可用格位=資料["available_rent_bikes"] + 資料["available_return_bikes"],
+    )
+    表 = 資料.groupby(分組欄位).agg(
+        站數=("sno", "size"),
+        空站數=("空站", "sum"),
+        滿站數=("滿站", "sum"),
+        可借總數=("available_rent_bikes", "sum"),
+        可用格位總數=("可用格位", "sum"),
+    )
     表["空站比例"] = (表["空站數"] / 表["站數"]).round(3)
-    return 表.sort_values("空站比例", ascending=False).reset_index()
+    表["滿站比例"] = (表["滿站數"] / 表["站數"]).round(3)
+    表["權重有車率"] = (表["可借總數"] / 表["可用格位總數"]).round(3)
+    欄位順序 = ["站數", "空站數", "空站比例", "滿站數", "滿站比例", "權重有車率"]
+    return 表[欄位順序].reset_index()
 
 
 @solara.component
@@ -43,8 +68,9 @@ def Page():
         solara.SliderInt("空站門檻：可借車 ≤", value=門檻, min=0, max=5)
     solara.ToggleButtonsSingle(value=時段, values=時段們)
 
-    當時 = df[df["時段"] == 時段.value]
-    表 = 各區空站比例(當時, 門檻.value)
+    當時 = df[df["時段名稱"] == 時段.value]
+    表 = 計算指標(當時, "sarea", 門檻.value)
+    表 = 表.sort_values("空站比例", ascending=False)
 
     圖 = px.bar(
         表,
