@@ -61,6 +61,16 @@ def 計算指標(資料, 分組欄位, 門檻值):
     return 表[欄位順序].reset_index()
 
 
+def 比例長表(表):
+    """把三個比例欄位轉成長表（一列＝一個時段的一個指標），給分組長條圖使用。"""
+    return 表.melt(
+        id_vars="時段名稱",
+        value_vars=["空站比例", "滿站比例", "權重有車率"],
+        var_name="指標",
+        value_name="比例",
+    )
+
+
 @solara.component
 def 全部畫面():
     """選「全部」時：選一個時段，比較各區的空站比例。"""
@@ -96,6 +106,21 @@ def 單區畫面(區名):
 
     該區 = df[df["sarea"] == 區名]
     表 = 計算指標(該區, "時段名稱", 門檻.value)
+
+    # barmode="group"：同一個時段的三個指標並排；text_auto 把數值直接標在長條上。
+    圖 = px.bar(
+        比例長表(表),
+        x="時段名稱",
+        y="比例",
+        color="指標",
+        barmode="group",
+        text_auto=".1%",
+        title=f"{區名}各時段的空站比例、滿站比例與權重有車率（只算營運中的站）",
+        labels={"時段名稱": "", "比例": "比例", "指標": "指標"},
+    )
+    圖.update_layout(yaxis_tickformat=".0%")
+    solara.FigurePlotly(圖)
+
     solara.DataFrame(表)
 
 
@@ -107,7 +132,7 @@ def Page():
     # 下拉選單和滑桿預設會撐滿整個頁寬，用 Column 限制最大寬度，比較好操作。
     with solara.Column(style={"max-width": "480px"}):
         solara.Select("選擇行政區", values=["全部"] + 行政區們, value=行政區)
-        solara.SliderInt("空站門檻：可借車 ≤", value=門檻, min=0, max=5)
+        solara.SliderInt("空站門檻（只影響空站比例）：可借車 ≤", value=門檻, min=0, max=5)
 
     if 行政區.value == "全部":
         全部畫面()
