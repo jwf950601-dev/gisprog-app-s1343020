@@ -62,8 +62,11 @@ df["時段名稱"] = df["時段"].map(時段說明)
 # 所以 700 px 會一層層往上撐開整頁。處理方式：
 # 1. 讓所有 flex 子元素可以比內容窄（min-width: 0），寬度就不會往上傳。
 # 2. Plotly 的容器寬度改成跟父層一樣（100%），超出的部分先藏起來。
-# 3. 表格（實測 653 px）只讓表格自己左右捲動，不撐寬整頁。
+# 3. 表格太寬時只在表格內捲動，不撐寬整頁（保險用）。
 # 4. 時段按鈕可以換行。
+# 5. v-row 預設左右各有 -12 px 的負邊距，實測比螢幕寬 24 px，設成 0。
+# 6. 表格（實測統計表 689 px、站點清單 479 px）：文字可以換行、縮小每格留白，縮到螢幕寬度內。
+# 7. 大標題置中；螢幕寬度 600 px 以下（手機）時，標題、內文、表格的字縮小。
 手機版CSS = """
 .v-application__wrap, .solara-content-main, .solara-autorouter-content { max-width: 100vw; }
 .v-sheet.d-flex > *, .v-row > * { min-width: 0; }
@@ -73,6 +76,17 @@ df["時段名稱"] = df["時段"].map(時段說明)
 }
 .table-box { max-width: 100%; overflow-x: auto; }
 .time-toggle { flex-wrap: wrap; height: auto !important; max-width: 100%; }
+.v-row { margin-left: 0 !important; margin-right: 0 !important; }
+.table-box th, .table-box td {
+    white-space: normal !important; padding: 4px 6px !important; font-size: 13px;
+}
+.solara-markdown h1 { text-align: center; }
+@media (max-width: 600px) {
+    .solara-markdown h1 { font-size: 1.5rem; }
+    .solara-markdown h3 { font-size: 1.05rem; }
+    .solara-markdown p, .solara-markdown li { font-size: 13px; }
+    .table-box th, .table-box td { font-size: 12px; }
+}
 """
 
 
@@ -240,8 +254,9 @@ def 全部畫面():
     with solara.Column(classes=["plot-box"]):
         solara.FigurePlotly(圖, on_click=點擊長條)
 
+    # 表格的欄名改成中文（圖表仍用原本的 sarea 欄位）。
     with solara.Column(classes=["table-box"]):
-        solara.DataFrame(表)
+        solara.DataFrame(表.rename(columns={"sarea": "行政區"}))
 
 
 @solara.component
@@ -285,6 +300,8 @@ def 整理站點清單(資料):
     """挑出站名、可借、可還三欄並改成中文欄名，依可借車數由少到多排序（空站排最前面）。"""
     清單 = 資料[["sna", "available_rent_bikes", "available_return_bikes"]]
     清單 = 清單.rename(columns={"sna": "站名", "available_rent_bikes": "可借車數", "available_return_bikes": "可還空位"})
+    # 每一站都以「YouBike2.0_」開頭，拿掉可以讓表格在手機上窄一點。
+    清單["站名"] = 清單["站名"].str.replace("YouBike2.0_", "", regex=False)
     return 清單.sort_values("可借車數").reset_index(drop=True)
 
 
