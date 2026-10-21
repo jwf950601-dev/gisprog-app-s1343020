@@ -5,7 +5,6 @@
 
 # pyright: reportMissingImports=false
 # pyright: reportMissingModuleSource=false
-import os
 from pathlib import Path
 
 import folium
@@ -359,5 +358,3 @@ def Page():
         "第 25、50、75 百分位數（4、8、15 台）切成 1–4、5–8、9–15、16 以上四級。"
         "分級固定，不隨空站門檻改變。"
     )
-    # 暫時的檢查用（決策點 2）：確認上線的 App 不是以 root 執行。1000＝一般使用者、0＝root。確認後刪除。
-    solara.Markdown(f"（暫時的檢查用）執行使用者 UID：{os.getuid()}")
