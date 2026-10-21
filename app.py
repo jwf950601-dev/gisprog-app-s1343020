@@ -67,6 +67,8 @@ df["時段名稱"] = df["時段"].map(時段說明)
 # 5. v-row 預設左右各有 -12 px 的負邊距，實測比螢幕寬 24 px，設成 0。
 # 6. 表格（實測統計表 689 px、站點清單 479 px）：文字可以換行、縮小每格留白，縮到螢幕寬度內。
 # 7. 大標題置中；螢幕寬度 600 px 以下（手機）時，標題、內文、表格的字縮小。
+# 8. CSS 只能把容器限制在螢幕寬度內，Plotly 圖本身還是 700 px（被藏起來）。
+#    Plotly 只有在瀏覽器觸發 resize 事件時才會重新量寬度，所以用 重新量寬度() 元件觸發一次。
 手機版CSS = """
 .v-application__wrap, .solara-content-main, .solara-autorouter-content { max-width: 100vw; }
 .v-sheet.d-flex > *, .v-row > * { min-width: 0; }
@@ -218,6 +220,11 @@ def 比例長表(表):
     )
 
 
+@solara.component_vue("resize_fix.vue")
+def 重新量寬度():
+    """觸發瀏覽器的 resize 事件，讓 Plotly 圖配合螢幕寬度（說明見 resize_fix.vue）。"""
+
+
 def 點擊長條(資料):
     """在「全部」畫面點某一區的長條，就切換到那一區（下拉選單也會跟著變）。"""
     # 橫向長條圖的行政區名稱在 Y 軸，所以讀 ys。
@@ -253,6 +260,7 @@ def 全部畫面():
                     "點某一區的長條，可以直接查看該區各時段的狀況。")
     with solara.Column(classes=["plot-box"]):
         solara.FigurePlotly(圖, on_click=點擊長條)
+        重新量寬度()
 
     # 表格的欄名改成中文（圖表仍用原本的 sarea 欄位）。
     with solara.Column(classes=["table-box"]):
@@ -289,6 +297,7 @@ def 單區畫面(區名):
     圖.add_vrect(x0=i - 0.5, x1=i + 0.5, fillcolor="gray", opacity=0.15, line_width=0)
     with solara.Column(classes=["plot-box"]):
         solara.FigurePlotly(圖)
+        重新量寬度()
 
     with solara.Column(classes=["table-box"]):
         solara.DataFrame(表)
